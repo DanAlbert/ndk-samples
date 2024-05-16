@@ -18,15 +18,16 @@
 
 #include "game-activity/native_app_glue/android_native_app_glue.h"
 
+#include "macros.h"
+
 namespace ndksamples::graphics {
 
 class Engine {
  public:
   Engine(android_app* _Nonnull app);
-  Engine(const Engine&) = delete;
   virtual ~Engine();
 
-  Engine& operator=(const Engine&) = delete;
+  DISALLOW_COPY_AND_ASSIGN(Engine);
 
   void Run();
 

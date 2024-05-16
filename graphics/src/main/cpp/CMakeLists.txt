@@ -10,6 +10,7 @@ add_library(app
     android_main.cpp
     engine.cpp
     logging.cpp
+    renderer.cpp
 )
 
 target_link_libraries(app
