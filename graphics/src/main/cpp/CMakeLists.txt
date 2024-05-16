@@ -8,6 +8,8 @@ add_compile_options(-Wall -Werror -Wextra)
 add_library(app
     SHARED
     android_main.cpp
+    engine.cpp
+    logging.cpp
 )
 
 target_link_libraries(app
