@@ -16,21 +16,88 @@
 
 #include "engine.h"
 
+#include <android/choreographer.h>
+
 #include <cstdlib>
 
 #include "logging.h"
 
-static void HandleCmd(android_app *, int32_t) {
-  // Nothing for now.
+namespace ndksamples::graphics {
+
+static void HandleCmd(android_app * _Nonnull app, int32_t cmd) {
+  CHECK_NE(app, nullptr);
+  auto engine = reinterpret_cast<Engine*>(app->userData);
+  CHECK_NE(engine, nullptr);
+  switch (cmd) {
+    case APP_CMD_INIT_WINDOW:
+      LOG(WARNING) << "Unhandled APP_CMD_INIT_WINDOW";
+      break;
+    case APP_CMD_TERM_WINDOW:
+      LOG(WARNING) << "Unhandled APP_CMD_TERM_WINDOW";
+      break;
+    case APP_CMD_WINDOW_RESIZED:
+      LOG(WARNING) << "Unhandled APP_CMD_WINDOW_RESIZED";
+      break;
+    case APP_CMD_WINDOW_REDRAW_NEEDED:
+      LOG(WARNING) << "Unhandled APP_CMD_WINDOW_REDRAW_NEEDED";
+      break;
+    case APP_CMD_CONTENT_RECT_CHANGED:
+      LOG(WARNING) << "Unhandled APP_CMD_CONTENT_RECT_CHANGED";
+      break;
+    case APP_CMD_SOFTWARE_KB_VIS_CHANGED:
+      LOG(WARNING) << "Unhandled APP_CMD_SOFTWARE_KB_VIS_CHANGED";
+      break;
+    case APP_CMD_GAINED_FOCUS:
+      engine->Resume();
+      break;
+    case APP_CMD_LOST_FOCUS:
+      engine->Pause();
+      break;
+    case APP_CMD_CONFIG_CHANGED:
+      LOG(WARNING) << "Unhandled APP_CMD_CONFIG_CHANGED";
+      break;
+    case APP_CMD_LOW_MEMORY:
+      LOG(WARNING) << "Unhandled APP_CMD_LOW_MEMORY";
+      break;
+    case APP_CMD_START:
+      LOG(WARNING) << "Unhandled APP_CMD_START";
+      break;
+    case APP_CMD_RESUME:
+      LOG(WARNING) << "Unhandled APP_CMD_RESUME";
+      break;
+    case APP_CMD_SAVE_STATE:
+      LOG(WARNING) << "Unhandled APP_CMD_SAVE_STATE";
+      break;
+    case APP_CMD_PAUSE:
+      LOG(WARNING) << "Unhandled APP_CMD_PAUSE";
+      break;
+    case APP_CMD_STOP:
+      LOG(WARNING) << "Unhandled APP_CMD_STOP";
+      break;
+    case APP_CMD_DESTROY:
+      LOG(WARNING) << "Unhandled APP_CMD_DESTROY";
+      break;
+    case APP_CMD_WINDOW_INSETS_CHANGED:
+      LOG(WARNING) << "Unhandled APP_CMD_WINDOW_INSETS_CHANGED";
+      break;
+    case APP_CMD_EDITOR_ACTION:
+      LOG(WARNING) << "Unhandled APP_CMD_EDITOR_ACTION";
+      break;
+    case APP_CMD_KEY_EVENT:
+      LOG(WARNING) << "Unhandled APP_CMD_KEY_EVENT";
+      break;
+    case APP_CMD_TOUCH_EVENT:
+      LOG(WARNING) << "Unhandled APP_CMD_TOUCH_EVENT";
+      break;
+    default:
+      LOG(ERROR) << "Unknown app command: " << cmd;
+      break;
+  }
 }
 
-static bool KeyEventFilter(const GameActivityKeyEvent *) {
-  return false;
-}
+static bool KeyEventFilter(const GameActivityKeyEvent *) { return false; }
 
-static bool MotionEventFilter(const GameActivityMotionEvent *) {
-  return false;
-}
+static bool MotionEventFilter(const GameActivityMotionEvent *) { return false; }
 
 static void HandleInputEvents(android_app *app) {
   auto inputBuf = android_app_swap_input_buffers(app);
@@ -46,33 +113,59 @@ static void HandleInputEvents(android_app *app) {
   android_app_clear_motion_events(inputBuf);
 }
 
-namespace ndksamples::graphics {
-
-Engine::Engine(android_app* _Nonnull app) : app_(app) {}
-
-Engine::~Engine() {}
-
-void Engine::Run() {
+Engine::Engine(android_app *_Nonnull app) : app_(app) {
+  app_->userData = this;
   app_->onAppCmd = HandleCmd;
 
   android_app_set_key_event_filter(app_, KeyEventFilter);
   android_app_set_motion_event_filter(app_, MotionEventFilter);
+}
 
+Engine::~Engine() {}
+
+void Engine::Run() {
   while (!app_->destroyRequested) {
-    Tick();
+    android_poll_source *poll_source = nullptr;
+    auto result = ALooper_pollOnce(-1, nullptr, nullptr,
+                                   reinterpret_cast<void **>(&poll_source));
+    CHECK_NE(result, ALOOPER_POLL_ERROR);
+
+    if (poll_source != nullptr) {
+      poll_source->process(app_, poll_source);
+    }
+
+    // TODO: Use AInputQueue.
+    // With the old native_app_glue, this was onInputEvent. I'm not sure why it
+    // isn't any more.
+    HandleInputEvents(app_);
   }
 }
 
-void Engine::Tick() {
-  android_poll_source* poll_source = nullptr;
-  auto result = ALooper_pollOnce(-1, nullptr, nullptr, reinterpret_cast<void**>(&poll_source));
-  CHECK_NE(result, ALOOPER_POLL_ERROR);
+void Engine::Pause() {
+  running_ = false;
+}
 
-  if (poll_source != nullptr) {
-    poll_source->process(app_, poll_source);
+void Engine::Resume() {
+  // Checked to make sure we don't double schedule Choreographer.
+  if (!running_) {
+    running_ = true;
+    ScheduleNextTick();
   }
+}
 
-  HandleInputEvents(app_);
+void Engine::ScheduleNextTick() {
+  AChoreographer_postFrameCallback(AChoreographer_getInstance(), TickCallback,
+                                   this);
+}
+
+void Engine::Tick() {
+  ScheduleNextTick();
+}
+
+void Engine::TickCallback(long, void * _Nonnull data) {
+  CHECK_NE(data, nullptr);
+  auto engine = reinterpret_cast<Engine *>(data);
+  engine->Tick();
 }
 
 }  // namespace ndksamples::graphics
