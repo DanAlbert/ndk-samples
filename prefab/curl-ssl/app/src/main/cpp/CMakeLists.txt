@@ -17,9 +17,10 @@
 cmake_minimum_required(VERSION 3.22.1)
 project(app VERSION 1.0.0 LANGUAGES CXX)
 
+include(AppLibrary)
+
 find_package(curl REQUIRED CONFIG)
 find_package(jsoncpp REQUIRED CONFIG)
 
-add_library(app SHARED app.cpp http.cpp logging.cpp)
-target_compile_options(app PRIVATE -Wall -Werror)
+add_app_library(app SHARED app.cpp http.cpp logging.cpp)
 target_link_libraries(app ${LIBLOG} curl::curl jsoncpp::jsoncpp)
