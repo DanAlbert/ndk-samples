@@ -11,3 +11,5 @@ libwebp
 **/.cxx
 display-p3/third_party
 
+# MkDocs build output
+/site
